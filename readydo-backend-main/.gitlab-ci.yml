@@ -1,0 +1,48 @@
+variables:
+  POSTGRES_DB: "test_db"
+  POSTGRES_USER: "test_user"
+  POSTGRES_PASSWORD: "test_password"
+  POSTGRES_HOST: "postgres"
+  POSTGRES_PORT: "5432"
+
+
+default:
+  image: python:3.10
+
+  services:
+    - postgres:latest
+
+  cache:
+    paths:
+      - .cache/pip
+
+  before_script:
+    - pip install -r requirements.txt
+
+#test:
+#  stage: test
+#  script:
+#    - python3 manage.py test --verbosity=2
+#
+#  only:
+#    - main
+
+deploy:
+  stage: deploy
+  before_script:
+    - eval $(ssh-agent -s)
+    - ssh-add <(echo "$SSH_PRIVATE_KEY")
+    - mkdir -p ~/.ssh
+    - '[[ -f /.dockerenv ]] && echo -e "Host *\n\tStrictHostKeyChecking no\n\n" > ~/.ssh/config'
+
+  script:
+    - ssh root@109.248.170.207 "
+      cd /home/readydo &&
+      git checkout main &&
+      git pull origin main &&
+      sh deploy.sh &&
+      exit $?"
+    - if [ $? -eq 0 ]; then echo -e ">\n>\nDeployed successfully!\n<\n<"; else echo -e ">\n>\nDeploy failed!\n<\n<"; fi
+
+  only:
+    - main
